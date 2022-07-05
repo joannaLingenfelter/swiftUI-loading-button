@@ -18,15 +18,7 @@ struct LoadingButton<Style: LoadingButtonStyle, Content: View>: View {
     let label: () -> Content
     let color: Color
 
-    @Binding private var isLoading: Bool
-
-    init(buttonStyle: Style.Type, isLoading: Binding<Bool>, action: @escaping () -> Void, label: @escaping () -> Content, color: Color) {
-        self.buttonStyle = buttonStyle
-        _isLoading = isLoading
-        self.action = action
-        self.label = label
-        self.color = color
-    }
+    var isLoading: Bool
 
     var body: some View {
         Button(action: action) {
@@ -65,7 +57,7 @@ struct MyButtonStyle: LoadingButtonStyle {
 }
 
 struct Loader: ViewModifier {
-    @Binding var isLoading: Bool
+    var isLoading: Bool
 
     func body(content: Content) -> some View {
         content
@@ -81,7 +73,7 @@ struct Loader: ViewModifier {
 }
 
 extension View {
-    func loading(_ bool: Binding<Bool>) -> some View {
+    func loading(_ bool: Bool) -> some View {
         modifier(Loader(isLoading: bool))
     }
 }
@@ -91,22 +83,11 @@ struct LoadingButtonDynamicLabel<Style: ButtonStyle, Label: View>: View {
     let action: () -> Void
     let label: () -> Label
 
-    @Binding var isLoading: Bool {
-        didSet {
-            print(isLoading)
-        }
-    }
-
-    init(buttonStyle: Style, isLoading: Binding<Bool>, action: @escaping () -> Void, @ViewBuilder label: @escaping () -> Label) {
-        self.buttonStyle = buttonStyle
-        _isLoading = isLoading
-        self.action = action
-        self.label = label
-    }
+    var isLoading: Bool
 
     var body: some View {
         Button(action: action) {
-            LoadingLabel(label: label, isLoading: $isLoading)
+            LoadingLabel(label: label, isLoading: isLoading)
         }
         .buttonStyle(buttonStyle)
     }
@@ -114,16 +95,11 @@ struct LoadingButtonDynamicLabel<Style: ButtonStyle, Label: View>: View {
 
 struct LoadingLabel<Label>: View where Label: View {
     let label: Label
+    var isLoading: Bool
 
-    @Binding private var isLoading: Bool {
-        didSet {
-            print(isLoading)
-        }
-    }
-
-    init(@ViewBuilder label: () -> Label, isLoading: Binding<Bool>) {
+    init(@ViewBuilder label: () -> Label, isLoading: Bool) {
         self.label = label()
-        _isLoading = isLoading
+        self.isLoading = isLoading
     }
 
     var body: some View {
@@ -148,14 +124,14 @@ struct ContentView: View {
     var body: some View {
         VStack {
             // Uses first Approach
-            LoadingButton(buttonStyle: MyButtonStyle.self, isLoading: $button1IsLoading, action: {
+            LoadingButton(buttonStyle: MyButtonStyle.self, action: {
                 withAnimation(.easeInOut) {
                     button1IsLoading.toggle()
                 }
                 print("Pressed!")
             }, label: {
                 Text("Press me!")
-            }, color: .blue)
+            }, color: .blue, isLoading: button1IsLoading)
 
             // Uses ViewModifier
             Button("Press me!") {
@@ -168,17 +144,17 @@ struct ContentView: View {
             .foregroundColor(.white)
             .background(Color.green)
             .clipShape(RoundedRectangle(cornerRadius: 10))
-            .loading($button2IsLoading)
+            .loading(button2IsLoading)
         }
 
-        LoadingButtonDynamicLabel(buttonStyle: MyButtonStyle(isLoading: button3IsLoading, color: .red), isLoading: $button3IsLoading) {
+        LoadingButtonDynamicLabel(buttonStyle: MyButtonStyle(isLoading: button3IsLoading, color: .red), action: {
             print("Button 3 pressed!")
             withAnimation {
                 button3IsLoading.toggle()
             }
-        } label: {
+        }, label: {
             Text("Press me!")
-        }
+        }, isLoading: button3IsLoading)
     }
 }
 
