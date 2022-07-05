@@ -9,52 +9,58 @@ import SwiftUI
 import Combine
 
 protocol LoadingButtonStyle: ButtonStyle {
-    init(isLoading: Bool)
+    init(isLoading: Bool, color: Color)
 }
 
-
-struct LoadingButton<ButtonStyle: LoadingButtonStyle, Content: View>: View {
-    let buttonStyle: ButtonStyle.Type
+struct LoadingButton<Style: LoadingButtonStyle, Content: View>: View {
+    let buttonStyle: Style.Type
     let action: () -> Void
     let label: () -> Content
+    let color: Color
 
     @Binding private var isLoading: Bool
 
-    init(buttonStyle: ButtonStyle.Type, isLoading: Binding<Bool>, action: @escaping () -> Void, label: @escaping () -> Content) {
+    init(buttonStyle: Style.Type, isLoading: Binding<Bool>, action: @escaping () -> Void, label: @escaping () -> Content, color: Color) {
         self.buttonStyle = buttonStyle
         _isLoading = isLoading
         self.action = action
         self.label = label
+        self.color = color
     }
 
     var body: some View {
-        Button(action: action, label: label)
-            .buttonStyle(buttonStyle.init(isLoading: isLoading))
+        Button(action: action) {
+            ZStack {
+                label()
+                    .opacity(isLoading ? 0.0 : 1.0)
+
+                if isLoading {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle())
+                }
+
+            }
+        }
+        .buttonStyle(buttonStyle.init(isLoading: isLoading, color: color))
     }
 }
 
 struct MyButtonStyle: LoadingButtonStyle {
     let isLoading: Bool
+    let color: Color
 
     func makeBody(configuration: ButtonStyleConfiguration) -> some View {
         return configuration.label
         .padding(.vertical)
         .padding(.horizontal, 20)
         .foregroundColor(.white)
-        .background(Color.blue)
+        .background(color.opacity(isLoading ? 0.4: 1.0))
         .clipShape(RoundedRectangle(cornerRadius: 10))
-        .opacity(isLoading ? 0.5 : 1.0)
         .overlay(
             Color.black
                 .opacity(configuration.isPressed ? 0.2 : 0.0)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
         )
-        .overlay {
-            if isLoading {
-                ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle())
-            }
-        }
     }
 }
 
@@ -80,21 +86,78 @@ extension View {
     }
 }
 
+struct LoadingButtonDynamicLabel<Style: ButtonStyle, Label: View>: View {
+    let buttonStyle: Style
+    let action: () -> Void
+    let label: () -> Label
+
+    @Binding var isLoading: Bool {
+        didSet {
+            print(isLoading)
+        }
+    }
+
+    init(buttonStyle: Style, isLoading: Binding<Bool>, action: @escaping () -> Void, @ViewBuilder label: @escaping () -> Label) {
+        self.buttonStyle = buttonStyle
+        _isLoading = isLoading
+        self.action = action
+        self.label = label
+    }
+
+    var body: some View {
+        Button(action: action) {
+            LoadingLabel(label: label, isLoading: $isLoading)
+        }
+        .buttonStyle(buttonStyle)
+    }
+}
+
+struct LoadingLabel<Label>: View where Label: View {
+    let label: Label
+
+    @Binding private var isLoading: Bool {
+        didSet {
+            print(isLoading)
+        }
+    }
+
+    init(@ViewBuilder label: () -> Label, isLoading: Binding<Bool>) {
+        self.label = label()
+        _isLoading = isLoading
+    }
+
+    var body: some View {
+        ZStack {
+            label
+                .opacity(isLoading ? 0.0 : 1.0)
+
+            if isLoading {
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle())
+            }
+
+        }
+    }
+}
+
 struct ContentView: View {
     @State var button1IsLoading: Bool = false
     @State var button2IsLoading: Bool = false
+    @State var button3IsLoading: Bool = false
 
     var body: some View {
         VStack {
-            LoadingButton(buttonStyle: MyButtonStyle.self, isLoading: $button1IsLoading) {
+            // Uses first Approach
+            LoadingButton(buttonStyle: MyButtonStyle.self, isLoading: $button1IsLoading, action: {
                 withAnimation(.easeInOut) {
                     button1IsLoading.toggle()
                 }
                 print("Pressed!")
-            } label: {
+            }, label: {
                 Text("Press me!")
-            }
+            }, color: .blue)
 
+            // Uses ViewModifier
             Button("Press me!") {
                 withAnimation(.easeInOut) {
                     button2IsLoading.toggle()
@@ -108,14 +171,14 @@ struct ContentView: View {
             .loading($button2IsLoading)
         }
 
-        Button("Press me!") {
-
+        LoadingButtonDynamicLabel(buttonStyle: MyButtonStyle(isLoading: button3IsLoading, color: .red), isLoading: $button3IsLoading) {
+            print("Button 3 pressed!")
+            withAnimation {
+                button3IsLoading.toggle()
+            }
+        } label: {
+            Text("Press me!")
         }
-        .padding(.vertical)
-        .padding(.horizontal, 20)
-        .foregroundColor(.white)
-        .background(Color.red)
-        .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 }
 
